@@ -1,0 +1,82 @@
+version: "3"
+
+services:
+  server:
+    container_name: workflow_server
+    image: nginx:1.15
+    networks:
+      - workflow
+    environment:
+      - EXTAS__BASE_PATH=/var/www/html
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/server/nginx/default.conf/default:/etc/nginx/conf.d/default.conf
+      - type: volume
+        source: api_data
+        target: /var/www/html
+    depends_on:
+      - api
+
+  installer:
+    container_name: workflow_installer
+    image: wf/insdraft0-fpm
+    networks:
+      - workflow
+    environment:
+      - EXTAS__BASE_PATH=/var/www/html
+    volumes:
+      - type: volume
+        source: api_data
+        target: /var/www/html
+    depends_on:
+      - api
+
+  api:
+    container_name: workflow_api
+    image: funcraft/extas-workflow-api:1.0
+    networks:
+      - workflow
+    environment:
+      - EXTAS__BASE_PATH=/var/www/html
+    build:
+      context: .
+    ports:
+      - "9000:9000"
+    volumes:
+      - type: volume
+        source: api_data
+        target: /var/www/html
+    depends_on:
+      - data
+
+  data:
+    container_name: workflow_data
+    image: mongo:4.4.0
+    networks:
+      - workflow
+    environment:
+      - MONGO_INITDB_DATABASE=extas
+    ports:
+      - "27018:27017"
+
+  ui:
+    container_name: workflow_ui
+    image: wf/uidraft1
+    networks:
+      - workflow
+    build:
+      context: ./../extas-workflow-dashboard-sapper
+      args:
+        - endpoint=drytest:8080
+    ports:
+      - "3030:3000"
+    depends_on:
+      - api
+
+volumes:
+  api_data:
+
+networks:
+  workflow:
+    driver: bridge
